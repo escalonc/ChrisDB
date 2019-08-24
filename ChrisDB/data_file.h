@@ -18,7 +18,7 @@ public:
 	void write(char* data, unsigned int size) const;
 	char* read(unsigned int position, unsigned int size) const;
 	char* read(unsigned int size) const;
-	long size();
+	long size() const;
 	void read_position(int position) const;
 	long write_position() const;
 	long read_position() const;

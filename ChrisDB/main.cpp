@@ -2,10 +2,15 @@
 //
 
 #include <iostream>
+#include "engine.h"
+#include <cstring>
 
 int main()
 {
-    std::cout << "Hello World!\n";
+    std::cout << "Creating database!\n";
+	char database_name[] = "db.dat";
+    const auto database_engine = new engine(database_name);
+	database_engine->create_database(100, 512);
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

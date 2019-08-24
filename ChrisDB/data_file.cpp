@@ -23,7 +23,7 @@ void data_file::open() const
 	this->file_->open(this->path_, std::ios::in | std::ios::out | std::ios::binary);
 }
 
-void data_file::open(std::ios_base::openmode mode) const
+void data_file::open(const std::ios_base::openmode mode) const
 {
 	this->file_->open(this->path_, mode);
 }
@@ -38,31 +38,33 @@ void data_file::write(char* data, unsigned int position, unsigned int size) cons
 	this->file_->flush();
 }
 
-void data_file::write(char* data, unsigned int size) const
+void data_file::write(char* data, const unsigned int size) const
 {
 	this->file_->write(data, size);
 	this->file_->flush();
 }
 
-char* data_file::read(unsigned int position, unsigned int size) const
+char* data_file::read(const unsigned int position, const unsigned int size) const
 {
-	char* element = new char[size];
+	const auto element = new char[size];
 
 	this->file_->seekg(position, std::ios::beg);
 	if (this->file_->read(element, size))
 	{
 		return element;
 	}
+	return nullptr;
 }
 
 char* data_file::read(unsigned int size) const
 {
-	char* element = new char[size];
+	const auto element = new char[size];
 
 	if (this->file_->read(element, size))
 	{
 		return element;
 	}
+	return nullptr;
 }
 
 long data_file::write_position() const { return this->file_->tellp(); }
@@ -77,11 +79,11 @@ void data_file::read_position(int position) const
 	this->file_->seekg(position, std::ios::beg);
 }
 
-long data_file::size()
+long data_file::size() const
 {
-	long previousPosition = this->read_position();
+	const auto previous_position = this->read_position();
 	this->file_->seekg(0, std::ios::end);
-	int newPosition = this->read_position();
-	this->read_position(previousPosition);
-	return newPosition;
+	const int new_position = this->read_position();
+	this->read_position(previous_position);
+	return new_position;
 }
