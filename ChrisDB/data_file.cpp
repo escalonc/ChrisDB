@@ -30,7 +30,7 @@ void data_file::open(const std::ios_base::openmode mode) const
 
 void data_file::close() const { this->file_->close(); }
 
-void data_file::write(char* data, unsigned int position, unsigned int size) const
+void data_file::write(char* data, const unsigned int position, const unsigned int size) const
 {
 	this->file_->seekp(position, std::ios::beg);
 
@@ -56,7 +56,7 @@ char* data_file::read(const unsigned int position, const unsigned int size) cons
 	return nullptr;
 }
 
-char* data_file::read(unsigned int size) const
+char* data_file::read(const unsigned int size) const
 {
 	const auto element = new char[size];
 
@@ -74,7 +74,7 @@ long data_file::read_position() const
 	return this->file_->tellg();
 }
 
-void data_file::read_position(int position) const
+void data_file::read_position(const int position) const
 {
 	this->file_->seekg(position, std::ios::beg);
 }
