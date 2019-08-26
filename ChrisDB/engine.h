@@ -11,5 +11,6 @@ public:
 	explicit engine(char* name);
 	void create_database(int database_size, int data_block_size) const;
 	void create_table(table* table_info) const;
-	table* read_table() const;
+	table* find_table_by_name(char name[30]) const;
+	
 };

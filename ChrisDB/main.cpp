@@ -15,9 +15,9 @@ int main()
 	strcpy_s(table_info->name,30, "example_table");
 	table_info->first_column = 5;
 	database_engine->create_table(table_info);
-	auto read_table = database_engine->read_table();
-	
-	
+	char table_name[30] = "example_table";
+	auto read_table = database_engine->find_table_by_name(table_name);
+		
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
