@@ -22,11 +22,12 @@ void engine::create_database(const int database_size, const int data_block_size)
 
 
 	const auto block = new data_block();
+	block->object_type = 'E';
 	block->data = new char[this->database_header_->data_block_buffer_size];
 
 	const auto quantity = this->database_header_->data_blocks_quantity;
 
-	this->data_file_->write(reinterpret_cast<char*>(this->database_header_), sizeof(database_header_));
+	this->data_file_->write(reinterpret_cast<char*>(this->database_header_), sizeof(database_header));
 
 	for (unsigned int i = 0; i < quantity; i++)
 	{
@@ -39,16 +40,7 @@ void engine::create_database(const int database_size, const int data_block_size)
 
 void engine::create_table(table* table_info) const
 {
-	auto position = database_header_->first_data_block;
-
-	for (unsigned int i = 0; i < database_header_->bitmap.size(); i++)
-	{
-		if (!database_header_->bitmap[i])
-		{
-			position += database_header_->data_block_size;
-			return;
-		}
-	}
+	const auto position = find_available_data_block('T');
 
 	const auto table_block = reinterpret_cast<data_block*>(data_file_->read(position, database_header_->data_block_size));
 	table_block->data = new char[database_header_->data_block_buffer_size];
@@ -57,6 +49,11 @@ void engine::create_table(table* table_info) const
 	const auto first_byte = table_block->first_free_byte;
 	memcpy(&table_block->data[first_byte], reinterpret_cast<char*>(table_info), sizeof table);
 	table_block->first_free_byte += sizeof table;
+
+	if (table_block->object_type == 'E')
+	{
+		table_block->object_type = 'C';
+	}
 
 	this->data_file_->write(reinterpret_cast<char*>(table_block), this->database_header_->first_data_block, database_header_->first_data_block);
 }
@@ -92,4 +89,49 @@ table* engine::find_table_by_name(char name[30]) const
 	}
 
 	return nullptr;
+}
+
+int engine::find_available_data_block(const char block_type) const
+{
+	auto position = database_header_->first_data_block;
+
+	for (unsigned int i = 0;i < database_header_->bitmap.size(); i++)
+	{
+		if (database_header_->bitmap[i])
+		{
+			continue;
+		}
+		
+		const auto block = reinterpret_cast<data_block*>(data_file_->read(position, database_header_->data_block_size));
+
+		if (block->object_type != 'E' && block->object_type != block_type)
+		{
+			position += database_header_->data_block_size;
+			continue;
+		}
+
+		return position;
+	}
+	return -1;
+}
+
+void engine::create_columns(column* columns_info, const unsigned int columns_quantity) const
+{
+	const auto available_data_block_position = find_available_data_block('C');
+	const auto column_data_block = reinterpret_cast<data_block*>(data_file_->read(available_data_block_position, database_header_->data_block_size));
+
+	auto current_byte = column_data_block->first_free_byte;
+	
+	for (unsigned int i = 0; i < columns_quantity; i++)
+	{
+		memcpy(&column_data_block->data[current_byte], reinterpret_cast<char*>(&columns_info[i]), sizeof column);
+		current_byte += sizeof column;
+	}
+
+	if (column_data_block->object_type == 'E')
+	{
+		column_data_block->object_type = 'C';
+	}
+
+	data_file_->write(reinterpret_cast<char*>(column_data_block), available_data_block_position, database_header_->data_block_size);
 }
