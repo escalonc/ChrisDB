@@ -6,10 +6,12 @@ engine::engine(char* name)
 	this->data_file_ = new data_file(name);
 	this->database_header_ = new database_header();
 	// strcat_s(this->database_name_, strlen(name), name);
+
 }
 
 void engine::create_database(const int database_size, const int data_block_size) const
 {
+
 	this->data_file_->open(std::ios::in | std::ios::out | std::ios::app | std::ios::binary);
 
 	const auto quantity_from_mb_to_b = 1024 * 1024 * database_size;
@@ -41,19 +43,15 @@ void engine::create_database(const int database_size, const int data_block_size)
 void engine::create_table(table* table_info) const
 {
 	const auto position = find_available_data_block('T');
+	const auto byte_position = static_cast<int>(std::get<0>(position));
+	const auto block_index = static_cast<int>(std::get<1>(position));
 
-	const auto table_block = reinterpret_cast<data_block*>(data_file_->read(position, database_header_->data_block_size));
-	table_block->data = new char[database_header_->data_block_buffer_size];
+	const auto table_block = reinterpret_cast<data_block*>(data_file_->read(byte_position, database_header_->data_block_size));
 	table_block->object_type = 'T';
 	table_block->objects_amount++;
 	const auto first_byte = table_block->first_free_byte;
 	memcpy(&table_block->data[first_byte], reinterpret_cast<char*>(table_info), sizeof table);
 	table_block->first_free_byte += sizeof table;
-
-	if (table_block->object_type == 'E')
-	{
-		table_block->object_type = 'C';
-	}
 
 	this->data_file_->write(reinterpret_cast<char*>(table_block), this->database_header_->first_data_block, database_header_->first_data_block);
 }
@@ -91,7 +89,7 @@ table* engine::find_table_by_name(char name[30]) const
 	return nullptr;
 }
 
-int engine::find_available_data_block(const char block_type) const
+std::tuple<int, int> engine::find_available_data_block(const char block_type) const
 {
 	auto position = database_header_->first_data_block;
 
@@ -101,7 +99,7 @@ int engine::find_available_data_block(const char block_type) const
 		{
 			continue;
 		}
-		
+
 		const auto block = reinterpret_cast<data_block*>(data_file_->read(position, database_header_->data_block_size));
 
 		if (block->object_type != 'E' && block->object_type != block_type)
@@ -110,28 +108,40 @@ int engine::find_available_data_block(const char block_type) const
 			continue;
 		}
 
-		return position;
+		return { position, i };
 	}
-	return -1;
+	return { -1, -1 };
 }
 
-void engine::create_columns(column* columns_info, const unsigned int columns_quantity) const
+std::tuple<unsigned int, unsigned int> engine::create_columns(column* columns_info, const unsigned int columns_quantity) const
 {
-	const auto available_data_block_position = find_available_data_block('C');
-	const auto column_data_block = reinterpret_cast<data_block*>(data_file_->read(available_data_block_position, database_header_->data_block_size));
-
-	auto current_byte = column_data_block->first_free_byte;
-	
+	unsigned first_block_column_byte_location = 0;
+	unsigned first_column_byte_location_in_block = 0;
 	for (unsigned int i = 0; i < columns_quantity; i++)
 	{
+		
+
+		const auto available_data_block_location = find_available_data_block('C');
+		const auto byte_location = static_cast<int>(std::get<0>(available_data_block_location));
+		const auto column_data_block = reinterpret_cast<data_block*>(data_file_->read(byte_location, database_header_->data_block_size));
+
+		auto current_byte = column_data_block->first_free_byte;
+
+		first_block_column_byte_location = byte_location;
+		
+		if (i == 0)
+		{
+			first_column_byte_location_in_block = current_byte;
+		}
+
 		memcpy(&column_data_block->data[current_byte], reinterpret_cast<char*>(&columns_info[i]), sizeof column);
 		current_byte += sizeof column;
-	}
 
-	if (column_data_block->object_type == 'E')
-	{
 		column_data_block->object_type = 'C';
+
+		data_file_->write(reinterpret_cast<char*>(column_data_block), byte_location, database_header_->data_block_size);
 	}
 
-	data_file_->write(reinterpret_cast<char*>(column_data_block), available_data_block_position, database_header_->data_block_size);
+	return { first_block_column_byte_location , first_column_byte_location_in_block };
+
 }

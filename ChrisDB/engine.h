@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "data_file.h"
 #include "types.h"
+#include <tuple>
 
 class engine
 {
@@ -12,7 +13,7 @@ public:
 	void create_database(int database_size, int data_block_size) const;
 	void create_table(table* table_info) const;
 	table* find_table_by_name(char name[30]) const;
-	int find_available_data_block(char block_type) const;
-	void create_columns(column* columns_info, unsigned int columns_quantity) const;
+	std::tuple<int, int> find_available_data_block(char block_type) const;
+	std::tuple<unsigned int, unsigned int> create_columns(column* columns_info, unsigned int columns_quantity) const;
 	
 };
