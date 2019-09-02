@@ -5,7 +5,7 @@ engine::engine(char* name)
 {
 	this->data_file_ = new data_file(name);
 	this->database_header_ = new database_header();
-	strcpy_s(database_header_->database_name, strlen(name), name);
+	//strcpy_s(database_header_->database_name, strlen(name), name);
 }
 
 void engine::create_database(const int database_size, const int data_block_size) const
@@ -30,6 +30,11 @@ void engine::create_database(const int database_size, const int data_block_size)
 
 	for (unsigned int i = 0; i < quantity; i++)
 	{
+		if (i == 0)
+		{
+			block->object_type = 'T';
+		}
+		
 		this->data_file_->write(reinterpret_cast<char*>(block), database_header_->data_block_size);
 	}
 
@@ -37,40 +42,48 @@ void engine::create_database(const int database_size, const int data_block_size)
 	this->data_file_->open(std::ios::in | std::ios::out | std::ios::binary);
 }
 
-void engine::create_table(table* table_info, column* columns_info, const unsigned int columns_quantity) const
+void engine::create_table(char* table_name, column* columns_info, const unsigned int columns_quantity) const
 {
+	const auto column_location = create_columns(columns_info, columns_quantity);
+
+	
+	const auto table_info = new table();
+	strcpy_s(table_info->name, 30, table_name);
 	const auto position = find_available_data_block('T');
 	const auto byte_position = static_cast<int>(std::get<0>(position));
 	const auto block_index = static_cast<int>(std::get<1>(position));
+	
+	table_info->first_block_column_byte_location = std::get<0>(column_location);
+	table_info->first_column_byte_location_in_block = std::get<1>(column_location);
 
 	const auto table_block = reinterpret_cast<data_block*>(data_file_->read(byte_position, database_header_->data_block_size));
 	table_block->object_type = 'T';
 	table_block->objects_amount++;
 	const auto first_byte = table_block->first_free_byte;
 
+	const auto buffer = new char[database_header_->data_block_buffer_size];
+
 	if (first_byte < (table_block->remaining_space - sizeof table))
-	{		
-		memcpy(&table_block->data[first_byte], reinterpret_cast<char*>(table_info), sizeof table);
-		
+	{
+		memcpy(&buffer[0], &table_block->data[0], database_header_->data_block_buffer_size);
+
+		memcpy(&buffer[first_byte], reinterpret_cast<char*>(table_info), sizeof table);
+
+		table_block->data = buffer;
+
 		table_block->first_free_byte += sizeof table;
-		table_block->remaining_space += sizeof table;
+		table_block->remaining_space -= sizeof table;
 	}
-
-	const auto first_column_location = find_available_data_block('C');
-	const auto column_block_location = std::get<0>(first_column_location);
-	table_info->first_block_column_byte_location = column_block_location;
-	const auto column_block = reinterpret_cast<data_block*>(data_file_->read(column_block_location, sizeof data_block));
 	
-	table_info->first_column_byte_location_in_block = column_block->first_free_byte;
-
 	this->data_file_->write(reinterpret_cast<char*>(table_block), this->database_header_->first_data_block, database_header_->first_data_block);
 
 	if (database_header_->first_table_block_byte_location == -1)
 	{
-		database_header_->first_table_block_byte_location = data_file_->read_position();
+		database_header_->first_table_block_byte_location = data_file_->write_position() - sizeof table;
 	}
 
 	create_columns(columns_info, columns_quantity);
+	delete[] buffer;
 }
 
 table* engine::find_table_by_name(char name[30]) const
@@ -87,17 +100,19 @@ table* engine::find_table_by_name(char name[30]) const
 			continue;
 		}
 
-		const auto buffer = new char[sizeof table];
-
 		for (unsigned int j = 0; j < current_data_block->objects_amount;j++)
 		{
-			memcpy(buffer, &current_data_block->data[j], sizeof table);
+			const auto buffer = new char[sizeof table];
+
+			memcpy(&buffer[0], &current_data_block->data[j * sizeof table], sizeof table);
 			const auto current_table = reinterpret_cast<table*>(buffer);
 
 			if (strcmp(current_table->name, name) == 0)
 			{
 				return current_table;
 			}
+
+			delete[] buffer;
 		}
 
 		block_position += database_header_->data_block_size;
@@ -108,7 +123,7 @@ table* engine::find_table_by_name(char name[30]) const
 
 column* engine::find_columns_of_table(table* table_info)
 {
-	return nullptr;
+	//auto initial_position = table_info.
 }
 
 std::tuple<int, int> engine::find_available_data_block(const char block_type) const

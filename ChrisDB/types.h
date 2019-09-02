@@ -11,10 +11,11 @@ struct table
 
 struct column
 {
-	char name[30];
-	char data_type[30];
+	unsigned int size;
 	unsigned int next_block_column_byte_location;
 	unsigned int next_column_byte_location_in_block;
+	char name[30];
+	char data_type;
 };
 
 struct database_header
