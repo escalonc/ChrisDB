@@ -5,13 +5,11 @@ engine::engine(char* name)
 {
 	this->data_file_ = new data_file(name);
 	this->database_header_ = new database_header();
-	// strcat_s(this->database_name_, strlen(name), name);
-
+	strcpy_s(database_header_->database_name, strlen(name), name);
 }
 
 void engine::create_database(const int database_size, const int data_block_size) const
 {
-
 	this->data_file_->open(std::ios::in | std::ios::out | std::ios::app | std::ios::binary);
 
 	const auto quantity_from_mb_to_b = 1024 * 1024 * database_size;
@@ -20,11 +18,10 @@ void engine::create_database(const int database_size, const int data_block_size)
 	this->database_header_->data_block_buffer_size = data_block_size - sizeof data_block;
 	this->database_header_->first_data_block = sizeof(database_header);
 	database_header_->bitmap = std::vector<bool>(database_header_->data_blocks_quantity);
-	// strcat_s(this->database_header_->database_name, strlen(database_header_->database_name), this->database_name_);
-
 
 	const auto block = new data_block();
 	block->object_type = 'E';
+	block->remaining_space = database_header_->data_block_buffer_size;
 	block->data = new char[this->database_header_->data_block_buffer_size];
 
 	const auto quantity = this->database_header_->data_blocks_quantity;
@@ -40,7 +37,7 @@ void engine::create_database(const int database_size, const int data_block_size)
 	this->data_file_->open(std::ios::in | std::ios::out | std::ios::binary);
 }
 
-void engine::create_table(table* table_info) const
+void engine::create_table(table* table_info, column* columns_info, const unsigned int columns_quantity) const
 {
 	const auto position = find_available_data_block('T');
 	const auto byte_position = static_cast<int>(std::get<0>(position));
@@ -50,10 +47,30 @@ void engine::create_table(table* table_info) const
 	table_block->object_type = 'T';
 	table_block->objects_amount++;
 	const auto first_byte = table_block->first_free_byte;
-	memcpy(&table_block->data[first_byte], reinterpret_cast<char*>(table_info), sizeof table);
-	table_block->first_free_byte += sizeof table;
+
+	if (first_byte < (table_block->remaining_space - sizeof table))
+	{		
+		memcpy(&table_block->data[first_byte], reinterpret_cast<char*>(table_info), sizeof table);
+		
+		table_block->first_free_byte += sizeof table;
+		table_block->remaining_space += sizeof table;
+	}
+
+	const auto first_column_location = find_available_data_block('C');
+	const auto column_block_location = std::get<0>(first_column_location);
+	table_info->first_block_column_byte_location = column_block_location;
+	const auto column_block = reinterpret_cast<data_block*>(data_file_->read(column_block_location, sizeof data_block));
+	
+	table_info->first_column_byte_location_in_block = column_block->first_free_byte;
 
 	this->data_file_->write(reinterpret_cast<char*>(table_block), this->database_header_->first_data_block, database_header_->first_data_block);
+
+	if (database_header_->first_table_block_byte_location == -1)
+	{
+		database_header_->first_table_block_byte_location = data_file_->read_position();
+	}
+
+	create_columns(columns_info, columns_quantity);
 }
 
 table* engine::find_table_by_name(char name[30]) const
@@ -89,6 +106,11 @@ table* engine::find_table_by_name(char name[30]) const
 	return nullptr;
 }
 
+column* engine::find_columns_of_table(table* table_info)
+{
+	return nullptr;
+}
+
 std::tuple<int, int> engine::find_available_data_block(const char block_type) const
 {
 	auto position = database_header_->first_data_block;
@@ -117,25 +139,32 @@ std::tuple<unsigned int, unsigned int> engine::create_columns(column* columns_in
 {
 	unsigned first_block_column_byte_location = 0;
 	unsigned first_column_byte_location_in_block = 0;
+
 	for (unsigned int i = 0; i < columns_quantity; i++)
 	{
-		
-
 		const auto available_data_block_location = find_available_data_block('C');
 		const auto byte_location = static_cast<int>(std::get<0>(available_data_block_location));
 		const auto column_data_block = reinterpret_cast<data_block*>(data_file_->read(byte_location, database_header_->data_block_size));
 
-		auto current_byte = column_data_block->first_free_byte;
+		const auto first_free_byte = column_data_block->first_free_byte;
 
 		first_block_column_byte_location = byte_location;
-		
+
 		if (i == 0)
 		{
-			first_column_byte_location_in_block = current_byte;
+			first_column_byte_location_in_block = first_free_byte;
 		}
 
-		memcpy(&column_data_block->data[current_byte], reinterpret_cast<char*>(&columns_info[i]), sizeof column);
-		current_byte += sizeof column;
+		if (first_free_byte < (column_data_block->remaining_space - sizeof column))
+		{
+			columns_info[i].next_column_byte_location_in_block = first_free_byte + sizeof column;
+			columns_info[i].next_block_column_byte_location = byte_location;
+
+			memcpy(&column_data_block->data[first_free_byte], reinterpret_cast<char*>(&columns_info[i]), sizeof column);
+
+			column_data_block->first_free_byte += sizeof column;
+			column_data_block->remaining_space -= sizeof column;
+		}
 
 		column_data_block->object_type = 'C';
 
@@ -143,5 +172,4 @@ std::tuple<unsigned int, unsigned int> engine::create_columns(column* columns_in
 	}
 
 	return { first_block_column_byte_location , first_column_byte_location_in_block };
-
 }

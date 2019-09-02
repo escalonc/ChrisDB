@@ -53,6 +53,7 @@ char* data_file::read(const unsigned int position, const unsigned int size) cons
 	{
 		return element;
 	}
+	
 	return nullptr;
 }
 
@@ -64,6 +65,7 @@ char* data_file::read(const unsigned int size) const
 	{
 		return element;
 	}
+	
 	return nullptr;
 }
 

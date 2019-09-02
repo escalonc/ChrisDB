@@ -22,7 +22,8 @@ struct database_header
 	unsigned int data_blocks_quantity{};
 	unsigned int data_block_buffer_size{};
 	unsigned int data_block_size{};
-	int first_data_block{};
+	unsigned int first_data_block{};
+	int first_table_block_byte_location = -1;
 	char database_name[30]{};
 	std::vector<bool> bitmap;
 };
@@ -31,7 +32,8 @@ struct data_block
 {
 	unsigned int first_free_byte = 0;
 	unsigned int objects_amount = 0;
-	int next{};
+	unsigned int remaining_space {};
+	int next_data_block_byte_location = -1;
+	char object_type = 'E';
 	char* data{};
-	char object_type{};
 };
