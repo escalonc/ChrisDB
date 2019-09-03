@@ -4,18 +4,26 @@
 
 struct table
 {
-	char name[30];
-	unsigned int first_block_column_byte_location;
-	unsigned int first_column_byte_location_in_block;
+	char name[30]{};
+	unsigned int columns_amount{};
+	int first_record {};
+	int first_block_column_byte_location = -1;
+	int first_column_byte_location_in_block =-1;
 };
 
 struct column
 {
-	unsigned int size;
-	unsigned int next_block_column_byte_location;
-	unsigned int next_column_byte_location_in_block;
-	char name[30];
-	char data_type;
+	unsigned int size{};
+	int next_block_column_byte_location = -1;
+	int next_column_byte_location_in_block = -1;
+	char name[30]{};
+	char data_type {};
+};
+
+struct record
+{
+	char* data;
+	int next;
 };
 
 struct database_header
