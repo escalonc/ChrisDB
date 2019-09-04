@@ -6,9 +6,9 @@ struct table
 {
 	char name[30]{};
 	unsigned int columns_amount{};
-	int first_record {};
+	int first_record{};
 	int first_block_column_byte_location = -1;
-	int first_column_byte_location_in_block =-1;
+	int first_column_byte_location_in_block = -1;
 };
 
 struct column
@@ -17,7 +17,14 @@ struct column
 	int next_block_column_byte_location = -1;
 	int next_column_byte_location_in_block = -1;
 	char name[30]{};
-	char data_type {};
+	char data_type{};
+};
+
+struct column_dto
+{
+	char name[30]{};
+	char data_type{};
+	unsigned int size{};
 };
 
 struct record
@@ -41,7 +48,7 @@ struct data_block
 {
 	unsigned int first_free_byte = 0;
 	unsigned int objects_amount = 0;
-	unsigned int remaining_space {};
+	unsigned int remaining_space{};
 	int next_data_block_byte_location = -1;
 	char object_type = 'E';
 	char* data{};

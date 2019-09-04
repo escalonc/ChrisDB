@@ -11,21 +11,27 @@ int main()
     const auto database_engine = new engine(database_name);
 	
 	database_engine->create_database(100, 512);
+	char table_name_1[30] = "ID";
+	char table_name_2[30] = "NAME";
 
-	const auto columns = new column();
+	const auto column_info = new column_dto*[2]{ new column_dto(), new column_dto() };
+	column_info[0]->data_type = 'I';
+	strcpy_s(column_info[0]->name, 30, table_name_1);
+	column_info[0]->size = 4;
+
+	column_info[1]->data_type = 'C';
+	strcpy_s(column_info[1]->name, 30, table_name_2);
+	column_info[1]->size = 20;
 
 	char table_1[30] = "example_table_1";
-	char table_2[30] = "example_table_2";
-	char table_3[30] = "example_table_3";
-	char table_4[30] = "example_table_4";
 	
-	database_engine->create_table(table_1, columns, 1);
-	database_engine->create_table(table_2, columns, 1);
-	database_engine->create_table(table_3, columns, 1);
-	database_engine->create_table(table_4, columns, 1);
+	database_engine->create_table(table_1, column_info, 2);
 	
-	char table_name[30] = "example_table_2";
-	auto read_table = database_engine->find_table_by_name(table_name);
+	const auto read_table = database_engine->find_table_by_name(table_1);
+
+	const auto table_columns = database_engine->find_columns_of_table(read_table);
+	
+	
 	std::cout << "Database was created" << std::endl;
 	delete database_engine;
 }
