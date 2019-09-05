@@ -30,6 +30,12 @@ int main()
 	const auto read_table = database_engine->find_table_by_name(table_1);
 
 	const auto table_columns = database_engine->find_columns_of_table(read_table);
+
+	std::cout << table_columns[0]->name << std::endl;
+	std::cout << table_columns[0]->size << std::endl << std::endl;
+
+	std::cout << table_columns[1]->name << std::endl;
+	std::cout << table_columns[1]->size << std::endl << std::endl;
 	
 	
 	std::cout << "Database was created" << std::endl;

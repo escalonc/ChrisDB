@@ -171,15 +171,13 @@ std::tuple<unsigned int, unsigned int> engine::create_columns(column_dto** colum
 	unsigned first_block_column_byte_location = 0;
 	unsigned first_column_byte_location_in_block = 0;
 
-	const auto columns_data = new column * [columns_amount];
-
 	for (unsigned int i = 0; i < columns_amount; i++)
 	{
 		const auto available_data_block_location = find_available_data_block('C');
 		const auto byte_location = static_cast<int>(std::get<0>(available_data_block_location));
 		const auto column_data_block = reinterpret_cast<data_block*>(data_file_->read(byte_location, database_header_->data_block_size));
 
-		columns_data[i] = column_factory(columns_info[i]);
+		const auto column_data = column_factory(columns_info[i]);
 
 		const auto first_free_byte = column_data_block->first_free_byte;
 
@@ -192,10 +190,10 @@ std::tuple<unsigned int, unsigned int> engine::create_columns(column_dto** colum
 
 		if (first_free_byte < (column_data_block->remaining_space - sizeof column))
 		{
-			columns_data[i]->next_column_byte_location_in_block = first_free_byte + sizeof column;
-			columns_data[i]->next_block_column_byte_location = byte_location;
+			column_data->next_column_byte_location_in_block = first_free_byte + sizeof column;
+			column_data->next_block_column_byte_location = byte_location;
 
-			memcpy(&column_data_block->data[first_free_byte], reinterpret_cast<char*>(&columns_info[i]), sizeof column);
+			memcpy(&column_data_block->data[first_free_byte], reinterpret_cast<char*>(column_data), sizeof column);
 
 			column_data_block->first_free_byte += sizeof column;
 			column_data_block->remaining_space -= sizeof column;
