@@ -33,22 +33,23 @@ void engine::create_database(const int database_size, const int data_block_size)
 		this->data_file_->write(reinterpret_cast<char*>(block), database_header_->data_block_size);
 	}
 
+	//delete block;
 	this->data_file_->close();
 	this->data_file_->open(std::ios::in | std::ios::out | std::ios::binary);
 }
 
 void engine::create_table(char* table_name, column_dto** columns_info, const unsigned int columns_amount) const
 {
-	//const auto column_location = create_columns(columns_info, columns_amount);
+	const auto column_location = create_columns(columns_info, columns_amount);
 
 	const auto table_info = new table();
 	strcpy_s(table_info->name, 30, table_name);
 	const auto position = find_available_data_block('T');
 	const auto byte_position = static_cast<int>(std::get<0>(position));
 
-	/*table_info->columns_amount = columns_amount;
+	table_info->columns_amount = columns_amount;
 	table_info->first_block_column_byte_location = std::get<0>(column_location);
-	table_info->first_column_byte_location_in_block = std::get<1>(column_location);*/
+	table_info->first_column_byte_location_in_block = std::get<1>(column_location);
 
 	const auto table_block = reinterpret_cast<data_block*>(data_file_->read(byte_position, database_header_->data_block_size));
 	table_block->object_type = 'T';
@@ -69,16 +70,16 @@ void engine::create_table(char* table_name, column_dto** columns_info, const uns
 		table_block->remaining_space -= sizeof table;
 	}
 
-	this->data_file_->write(reinterpret_cast<char*>(table_block), this->database_header_->first_data_block, database_header_->first_data_block);
+	this->data_file_->write(reinterpret_cast<char*>(table_block), byte_position, database_header_->data_block_size);
 
 	if (database_header_->first_table_block_byte_location == -1)
 	{
 		database_header_->first_table_block_byte_location = data_file_->write_position() - sizeof table;
 	}
 
-	delete[] buffer;
+	/*delete[] buffer;
 	delete table_info;
-	delete table_block;
+	delete table_block;*/
 }
 
 table* engine::find_table_by_name(char name[30]) const
@@ -108,9 +109,10 @@ table* engine::find_table_by_name(char name[30]) const
 				return current_table;
 			}
 
-			delete[] buffer;
+			//delete[] buffer;
 		}
 
+		//delete current_data_block;
 		block_position += database_header_->data_block_size;
 	}
 
@@ -119,25 +121,25 @@ table* engine::find_table_by_name(char name[30]) const
 
 column** engine::find_columns_of_table(table* table_info) const
 {
-	const auto columns = new column*[table_info->columns_amount];
+	const auto columns = new column * [table_info->columns_amount];
 
 	auto block_location = table_info->first_block_column_byte_location;
 	auto column_location_in_block = table_info->first_column_byte_location_in_block;
-	
+
 	for (unsigned i = 0; i < table_info->columns_amount; i++)
 	{
-		const auto column_block = reinterpret_cast<data_block*>(data_file_->read(block_location));
+		const auto column_block = reinterpret_cast<data_block*>(data_file_->read(block_location, sizeof column));
 		const auto buffer = new char[sizeof column];
 		memcpy(&buffer[0], &column_block->data[column_location_in_block], sizeof column);
 		const auto column_info = reinterpret_cast<column*>(buffer);
 		columns[i] = column_info;
 		block_location = column_info->next_block_column_byte_location;
 		column_location_in_block = column_info->next_column_byte_location_in_block;
-		delete[] buffer;
+		//delete[] buffer;
 	}
 
 	return columns;
-	
+
 }
 
 std::tuple<int, int> engine::find_available_data_block(const char block_type) const
@@ -204,7 +206,7 @@ std::tuple<unsigned int, unsigned int> engine::create_columns(column_dto** colum
 		data_file_->write(reinterpret_cast<char*>(column_data_block), byte_location, database_header_->data_block_size);
 	}
 
-	delete[] columns_data;
+	//delete[] columns_data;
 
 	return { first_block_column_byte_location , first_column_byte_location_in_block };
 }
@@ -219,7 +221,7 @@ column* engine::column_factory(column_dto* column_info)
 	{
 		column_data->size = 4;
 	}
-	else if(column_info->data_type == 'D') { column_data->size = 8; }
+	else if (column_info->data_type == 'D') { column_data->size = 8; }
 	else { column_data->size = column_info->size; }
 
 	return column_data;
