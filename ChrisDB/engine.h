@@ -7,6 +7,8 @@ class engine
 {
 	data_file* data_file_;
 	database_header* database_header_;
+	static column* column_factory(column_dto* column_info);
+	unsigned get_record_size(table* table_info) const;
 	
 public:
 	explicit engine(char* name);
@@ -16,5 +18,5 @@ public:
 	column** find_columns_of_table(table* table_info) const;
 	std::tuple<int, int> find_available_data_block(char block_type) const;
 	std::tuple<unsigned int, unsigned int> create_columns(column_dto** columns_info, unsigned int columns_amount) const;
-	static column* column_factory(column_dto* column_info);
+	
 };

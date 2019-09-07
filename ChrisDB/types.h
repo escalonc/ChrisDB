@@ -9,6 +9,8 @@ struct table
 	int first_record{};
 	int first_block_column_byte_location = -1;
 	int first_column_byte_location_in_block = -1;
+	int first_block_record_byte_location = -1;
+	int first_record_byte_location_in_block = -1;
 };
 
 struct column

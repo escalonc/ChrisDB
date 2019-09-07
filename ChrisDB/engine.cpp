@@ -188,11 +188,19 @@ std::tuple<unsigned int, unsigned int> engine::create_columns(column_dto** colum
 			first_column_byte_location_in_block = first_free_byte;
 		}
 
-		if (first_free_byte < (column_data_block->remaining_space - sizeof column))
+		if (i == columns_amount - 1)
+		{
+			column_data->next_column_byte_location_in_block = -1;
+			column_data->next_block_column_byte_location = -1;
+		}
+		else
 		{
 			column_data->next_column_byte_location_in_block = first_free_byte + sizeof column;
 			column_data->next_block_column_byte_location = byte_location;
+		}
 
+		if (first_free_byte < (column_data_block->remaining_space - sizeof column))
+		{
 			memcpy(&column_data_block->data[first_free_byte], reinterpret_cast<char*>(column_data), sizeof column);
 
 			column_data_block->first_free_byte += sizeof column;
@@ -223,4 +231,17 @@ column* engine::column_factory(column_dto* column_info)
 	else { column_data->size = column_info->size; }
 
 	return column_data;
+}
+
+unsigned engine::get_record_size(table* table_info) const
+{
+	auto record_size = 0;
+	const auto columns = find_columns_of_table(table_info);
+
+	for (unsigned i = 0;i < table_info->columns_amount;i++)
+	{
+		record_size += columns[i]->size;
+	}
+
+	return record_size;
 }
