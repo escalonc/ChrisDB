@@ -6,11 +6,12 @@ struct table
 {
 	char name[30]{};
 	unsigned int columns_amount{};
-	int first_record{};
 	int first_block_column_byte_location = -1;
 	int first_column_byte_location_in_block = -1;
 	int first_block_record_byte_location = -1;
 	int first_record_byte_location_in_block = -1;
+	int last_block_record_byte_location = -1;
+	int last_record_byte_location_in_block = -1;
 };
 
 struct column
@@ -31,8 +32,8 @@ struct column_dto
 
 struct record
 {
-	char* data;
-	int next;
+	char* data{};
+	int next{};
 };
 
 struct database_header

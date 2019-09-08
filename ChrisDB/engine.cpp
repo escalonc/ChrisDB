@@ -166,6 +166,30 @@ std::tuple<int, int> engine::find_available_data_block(const char block_type) co
 	return { -1, -1 };
 }
 
+std::tuple<int, int> engine::find_available_data_block(const char block_type, const unsigned exclude_position) const
+{
+	auto position = database_header_->first_data_block;
+
+	for (unsigned int i = 0;i < database_header_->bitmap.size(); i++)
+	{
+		if (database_header_->bitmap[i])
+		{
+			continue;
+		}
+
+		const auto block = reinterpret_cast<data_block*>(data_file_->read(position, database_header_->data_block_size));
+
+		if (block->object_type != 'E' && block->object_type != block_type && exclude_position != position)
+		{
+			position += database_header_->data_block_size;
+			continue;
+		}
+
+		return { position , i };
+	}
+	return { -1, -1 };
+}
+
 std::tuple<unsigned int, unsigned int> engine::create_columns(column_dto** columns_info, const unsigned int columns_amount) const
 {
 	unsigned first_block_column_byte_location = 0;
@@ -244,4 +268,50 @@ unsigned engine::get_record_size(table* table_info) const
 	}
 
 	return record_size;
+}
+
+void engine::create_record(char* input_buffer, table* table_info, unsigned block_table_byte_location,
+	unsigned table_byte_location_in_block) const
+{
+	const auto record_size = this->get_record_size(table_info);
+	const auto record_info = new record();
+	record_info->data = new char[];
+	memcpy(&record_info->data[0], &input_buffer[0], record_size);
+
+	std::tuple<int, int> block_record_position;
+
+	if (table_info->first_block_record_byte_location == -1)
+	{
+		block_record_position = find_available_data_block('R');
+	}
+	else
+	{
+		block_record_position = find_available_data_block('R', table_info->first_block_record_byte_location);
+	}
+
+	const auto block_byte_location = std::get<0>(block_record_position);
+	const auto block_record = reinterpret_cast<data_block*>(data_file_->read(block_byte_location, sizeof data_block));
+
+	const auto buffer = new char[database_header_->data_block_buffer_size];
+	memcpy(&buffer[0], block_record->data, database_header_->data_block_buffer_size);
+
+	if (block_record->first_free_byte < (block_record->remaining_space - sizeof table))
+	{
+		record_info->next = record_size + sizeof record;
+	}
+	
+	memcpy(&buffer[block_record->first_free_byte], reinterpret_cast<char*>(record_info), record_size + sizeof record);
+
+	block_record->data = buffer;
+	block_record->object_type = 'R';
+
+	data_file_->write(reinterpret_cast<char*>(block_record), block_byte_location, database_header_->data_block_size);
+
+	if (table_info->first_block_record_byte_location == -1)
+	{
+		table_info->first_block_record_byte_location = int(data_file_->write_position() - sizeof database_header_->data_block_size);
+	}
+
+	table_info->first_block_record_byte_location = int(data_file_->write_position() - sizeof database_header_->data_block_size);
+	
 }

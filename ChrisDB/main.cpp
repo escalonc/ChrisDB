@@ -7,7 +7,7 @@
 int main()
 {
     std::cout << "Creating database!\n";
-	char database_name[] = "chris.db";
+	char database_name[] = "data.chrisdb";
     const auto database_engine = new engine(database_name);
 	
 	database_engine->create_database(100, 512);
@@ -36,6 +36,8 @@ int main()
 
 	std::cout << table_columns[1]->name << std::endl;
 	std::cout << table_columns[1]->size << std::endl << std::endl;
+
+	std::cout << "record size is: " << database_engine->get_record_size(read_table) << std::endl;
 	
 	
 	std::cout << "Database was created" << std::endl;
