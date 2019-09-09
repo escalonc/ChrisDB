@@ -8,7 +8,7 @@ engine::engine(char* name)
 	//strcpy_s(database_header_->database_name, strlen(name), name);
 }
 
-void engine::create_database(const int database_size, const int data_block_size) const
+void engine::create_database(const unsigned database_size, const unsigned data_block_size) const
 {
 	this->data_file_->open(std::ios::in | std::ios::out | std::ios::app | std::ios::binary);
 
@@ -275,7 +275,7 @@ void engine::create_record(char* input_buffer, table* table_info, unsigned block
 {
 	const auto record_size = this->get_record_size(table_info);
 	const auto record_info = new record();
-	record_info->data = new char[];
+	record_info->data = new char[record_size];
 	memcpy(&record_info->data[0], &input_buffer[0], record_size);
 
 	std::tuple<int, int> block_record_position;
@@ -313,5 +313,12 @@ void engine::create_record(char* input_buffer, table* table_info, unsigned block
 	}
 
 	table_info->first_block_record_byte_location = int(data_file_->write_position() - sizeof database_header_->data_block_size);
+
+	data_file_->write(reinterpret_cast<char*>(table_info), block_table_byte_location, database_header_->data_block_size);
 	
+}
+
+void engine::close() const
+{
+	data_file_->close();
 }
