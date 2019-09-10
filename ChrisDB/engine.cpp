@@ -1,5 +1,6 @@
 ﻿#include "engine.h"
 #include "types.h"
+#include <iostream>
 
 engine::engine(char* name)
 {
@@ -82,7 +83,7 @@ void engine::create_table(char* table_name, column_dto** columns_info, const uns
 	delete table_block;*/
 }
 
-table* engine::find_table_by_name(char name[30]) const
+std::tuple<table*, unsigned, unsigned> engine::find_table_by_name(char name[30]) const
 {
 	auto block_position = database_header_->first_data_block;
 
@@ -100,13 +101,13 @@ table* engine::find_table_by_name(char name[30]) const
 		for (unsigned int j = 0; j < current_data_block->objects_amount;j++)
 		{
 			const auto buffer = new char[sizeof table];
-
-			memcpy(&buffer[0], &current_data_block->data[j * sizeof table], sizeof table);
+			const auto table_byte_location_in_block = j * sizeof table;
+			memcpy(&buffer[0], &current_data_block->data[table_byte_location_in_block], sizeof table);
 			const auto current_table = reinterpret_cast<table*>(buffer);
 
 			if (strcmp(current_table->name, name) == 0)
 			{
-				return current_table;
+				return { current_table,  block_position,  table_byte_location_in_block };
 			}
 
 			//delete[] buffer;
@@ -116,7 +117,7 @@ table* engine::find_table_by_name(char name[30]) const
 		block_position += database_header_->data_block_size;
 	}
 
-	return nullptr;
+	return { nullptr, -1, -1 };
 }
 
 column** engine::find_columns_of_table(table* table_info) const
@@ -270,8 +271,7 @@ unsigned engine::get_record_size(table* table_info) const
 	return record_size;
 }
 
-void engine::create_record(char* input_buffer, table* table_info, unsigned block_table_byte_location,
-	unsigned table_byte_location_in_block) const
+void engine::create_record(char* input_buffer, table* table_info, const unsigned block_table_byte_location, unsigned table_byte_location_in_block) const
 {
 	const auto record_size = this->get_record_size(table_info);
 	const auto record_info = new record();
@@ -299,26 +299,80 @@ void engine::create_record(char* input_buffer, table* table_info, unsigned block
 	{
 		record_info->next = record_size + sizeof record;
 	}
-	
+
 	memcpy(&buffer[block_record->first_free_byte], reinterpret_cast<char*>(record_info), record_size + sizeof record);
 
 	block_record->data = buffer;
 	block_record->object_type = 'R';
 
+	block_record->objects_amount += 1;
+
 	data_file_->write(reinterpret_cast<char*>(block_record), block_byte_location, database_header_->data_block_size);
 
 	if (table_info->first_block_record_byte_location == -1)
 	{
-		table_info->first_block_record_byte_location = int(data_file_->write_position() - sizeof database_header_->data_block_size);
+		table_info->first_block_record_byte_location = int(block_byte_location);
 	}
 
-	table_info->first_block_record_byte_location = int(data_file_->write_position() - sizeof database_header_->data_block_size);
+	table_info->last_block_record_byte_location = int(block_byte_location);
 
-	data_file_->write(reinterpret_cast<char*>(table_info), block_table_byte_location, database_header_->data_block_size);
-	
+	const auto block_table = reinterpret_cast<data_block*>(data_file_->read(block_table_byte_location, database_header_->data_block_size)
+	);
+	memcpy(&block_table->data[table_byte_location_in_block], reinterpret_cast<char*>(table_info), sizeof table);
+
+	data_file_->write(reinterpret_cast<char*>(block_table), block_table_byte_location, database_header_->data_block_size);
+
 }
 
 void engine::close() const
 {
 	data_file_->close();
+}
+
+void engine::select_all(table* table_info) const
+{
+	const auto record_size = get_record_size(table_info);
+	const auto columns = find_columns_of_table(table_info);
+	const auto record_block = reinterpret_cast<data_block*>(data_file_->read(table_info->first_block_record_byte_location, record_size + sizeof record)
+		);
+	unsigned position = 0;
+
+	for (unsigned i = 0; i < record_block->objects_amount;i++)
+	{
+		const auto record_buffer = new char[record_size];
+		memcpy(&record_buffer[0], &record_block->data[i * (record_size + sizeof record)], record_size + sizeof record);
+		std::cout << "-----------------------------------------------------------";
+		std::cout << std::endl;
+
+		for (unsigned j = 0; j < table_info->columns_amount; j++)
+		{
+
+			if (columns[j]->data_type == 'I')
+			{
+				int value;
+				memcpy(&value, &record_buffer[position], columns[j]->size);
+				std::cout << value;
+
+			}
+			else if (columns[j]->data_type == 'D')
+			{
+				double value;
+				memcpy(&value, &record_buffer[position], columns[j]->size);
+				std::cout << value;
+			}
+			else
+			{
+				const auto value = new char[columns[j]->size];
+				memcpy(value, &record_buffer[position], columns[j]->size);
+				std::cout << value;
+			}
+			std::cout << std::endl;
+
+			position += columns[j]->size;
+		}
+	}
+
+
+	
+
 }

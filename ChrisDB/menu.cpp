@@ -15,7 +15,7 @@ void menu::init()
 	std::cout << "Enter the database name: ";
 	std::cin >> database_name;
 	std::cout << std::endl;
-	
+
 	std::cout << "Enter the database size: ";
 	std::cin >> database_size;
 
@@ -40,7 +40,6 @@ void menu::init()
 		std::cout << "*********************" << std::endl;
 		std::cout << std::endl << std::endl;
 		std::cout << "Enter an option: ";
-
 		std::cin >> option;
 
 		switch (option)
@@ -50,9 +49,9 @@ void menu::init()
 			char table_name[30];
 			unsigned columns_amount;
 
-			std::cout << "Enter the table amount: ";
+			std::cout << "Enter the table name: ";
 			std::cin >> table_name;
-			std::cout << std::endl << std::endl;
+			std::cout << std::endl;
 
 			std::cout << "Enter the columns amount: ";
 			std::cin >> columns_amount;
@@ -62,17 +61,18 @@ void menu::init()
 
 			for (unsigned i = 0;i < columns_amount;i++)
 			{
+				const auto current_column = new column_dto();
 				char column_name[30]{};
 				unsigned column_size = 0;
 				char column_data_type{};
 
 				std::cout << "Enter the column name: ";
 				std::cin >> column_name;
-				std::cout << std::endl << std::endl;
+				std::cout << std::endl;
 
 				std::cout << "Enter the columns data type: ";
 				std::cin >> column_data_type;
-				std::cout << std::endl << std::endl;
+				std::cout << std::endl;
 
 				if (column_data_type == 'C')
 				{
@@ -81,9 +81,11 @@ void menu::init()
 					std::cout << std::endl << std::endl;
 				}
 
-				strcpy_s(columns_info[i]->name, 30, table_name);
-				columns_info[i]->size = column_size;
-				columns_info[i]->data_type = column_data_type;
+				strncpy_s(current_column->name, column_name, 30);
+				current_column->size = column_size;
+				current_column->data_type = column_data_type;
+
+				columns_info[i] = current_column;
 			}
 
 
@@ -93,29 +95,73 @@ void menu::init()
 		}
 		case 2:
 		{
-				
+
 			break;
 		}
 		case 3:
 		{
+			char table_name[30];
+			
+
+			std::cout << "Enter the table name: ";
+			std::cin >> table_name;
+			std::cout << std::endl;
+
+			const auto table_data = database_engine->find_table_by_name(table_name);
+			const auto table_info = static_cast<table*>(std::get<0>(table_data));
+
+			database_engine->select_all(table_info);
+				
 			break;
 		}
 		case 4:
 		{
 			char table_name[30]{};
+			unsigned first_free_byte = 0;
 
 			std::cout << "Enter the table name: ";
 			std::cin >> table_name;
 			std::cout << std::endl << std::endl;
 
-			const auto table_info = database_engine->find_table_by_name(table_name);
+			const auto table_data = database_engine->find_table_by_name(table_name);
+
+			const auto table_info = static_cast<table*>(std::get<0>(table_data));
+			const auto block_table_byte_location = static_cast<unsigned>(std::get<1>(table_data));
+			const auto table_byte_location_in_block = static_cast<unsigned>(std::get<2>(table_data));
+
 			const auto columns = database_engine->find_columns_of_table(table_info);
 
-				for (unsigned i = 0; i < table_info->columns_amount; i++)
+			const auto input_buffer = new char[database_engine->get_record_size(table_info)];
+
+			for (unsigned i = 0; i < table_info->columns_amount; i++)
+			{
+				std::cout << "Enter the the value for field " << columns[i]->name << ": ";
+
+				if (columns[i]->data_type == 'I')
 				{
-					
+					int value;
+					std::cin >> value;
+					memcpy(&input_buffer[first_free_byte], reinterpret_cast<char*>(&value), columns[i]->size);
+
 				}
-				
+				else if (columns[i]->data_type == 'D')
+				{
+					double value;
+					std::cin >> value;
+					memcpy(&input_buffer[first_free_byte], reinterpret_cast<char*>(&value), columns[i]->size);
+				}
+				else
+				{
+					const auto value = new char[columns[i]->size];
+					std::cin >> value;
+					memcpy(&input_buffer[first_free_byte], reinterpret_cast<char*>(value), columns[i]->size);
+				}
+
+				first_free_byte += columns[i]->size;
+			}
+
+			database_engine->create_record(input_buffer, table_info, block_table_byte_location, table_byte_location_in_block);
+
 			break;
 		}
 		case 5:
