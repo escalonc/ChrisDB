@@ -22,4 +22,7 @@ public:
 	void create_record(char* input_buffer, table* table_info, unsigned block_table_byte_location, unsigned table_byte_location_in_block) const;
 	void close() const;
 	void select_all(table* table_info) const;
+	void list_tables() const;
+	void delete_table(char name[30]) const;
+	void delete_records(char table_name[30]) const;
 };

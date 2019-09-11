@@ -35,8 +35,9 @@ void menu::init()
 		std::cout << "* 2) List tables    *" << std::endl;
 		std::cout << "* 3) Select records *" << std::endl;
 		std::cout << "* 4) Insert records *" << std::endl;
-		std::cout << "* 5) Update records *" << std::endl;
+		std::cout << "* 5) Delete table   *" << std::endl;
 		std::cout << "* 6) Drop database  *" << std::endl;
+		std::cout << "* 7) Truncate table *" << std::endl;
 		std::cout << "*********************" << std::endl;
 		std::cout << std::endl << std::endl;
 		std::cout << "Enter an option: ";
@@ -95,7 +96,7 @@ void menu::init()
 		}
 		case 2:
 		{
-
+			database_engine->list_tables();
 			break;
 		}
 		case 3:
@@ -152,9 +153,9 @@ void menu::init()
 				}
 				else
 				{
-					const auto value = new char[columns[i]->size];
+					const auto value = new char[columns[i]->size+10];
 					std::cin >> value;
-					memcpy(&input_buffer[first_free_byte], reinterpret_cast<char*>(value), columns[i]->size);
+					memcpy(&input_buffer[first_free_byte], value, columns[i]->size);
 				}
 
 				first_free_byte += columns[i]->size;
@@ -166,6 +167,14 @@ void menu::init()
 		}
 		case 5:
 		{
+			char table_name[30];
+
+
+			std::cout << "Enter the table name: ";
+			std::cin >> table_name;
+			std::cout << std::endl;
+
+			database_engine->delete_table(table_name);
 			break;
 		}
 		case 6:
@@ -182,6 +191,18 @@ void menu::init()
 			{
 				std::cout << "There was an error when trying to delete the database!";
 			}
+			break;
+		}
+		case 7:
+		{
+			char table_name[30];
+
+
+			std::cout << "Enter the table name: ";
+			std::cin >> table_name;
+			std::cout << std::endl;
+
+			database_engine->delete_records(table_name);
 			break;
 		}
 		default:

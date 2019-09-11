@@ -271,12 +271,9 @@ unsigned engine::get_record_size(table* table_info) const
 	return record_size;
 }
 
-void engine::create_record(char* input_buffer, table* table_info, const unsigned block_table_byte_location, unsigned table_byte_location_in_block) const
+void engine::create_record(char* input_buffer, table* table_info, const unsigned block_table_byte_location, const unsigned table_byte_location_in_block) const
 {
 	const auto record_size = this->get_record_size(table_info);
-	const auto record_info = new record();
-	record_info->data = new char[record_size];
-	memcpy(&record_info->data[0], &input_buffer[0], record_size);
 
 	std::tuple<int, int> block_record_position;
 
@@ -289,35 +286,31 @@ void engine::create_record(char* input_buffer, table* table_info, const unsigned
 		block_record_position = find_available_data_block('R', table_info->first_block_record_byte_location);
 	}
 
-	const auto block_byte_location = std::get<0>(block_record_position);
-	const auto block_record = reinterpret_cast<data_block*>(data_file_->read(block_byte_location, sizeof data_block));
+	const auto block_record_byte_location = std::get<0>(block_record_position);
+	const auto block_record = reinterpret_cast<data_block*>(data_file_->read(block_record_byte_location, database_header_->data_block_size));
 
 	const auto buffer = new char[database_header_->data_block_buffer_size];
-	memcpy(&buffer[0], block_record->data, database_header_->data_block_buffer_size);
+	memcpy(&buffer[0], &block_record->data[0], database_header_->data_block_buffer_size);
 
-	if (block_record->first_free_byte < (block_record->remaining_space - sizeof table))
-	{
-		record_info->next = record_size + sizeof record;
-	}
 
-	memcpy(&buffer[block_record->first_free_byte], reinterpret_cast<char*>(record_info), record_size + sizeof record);
+	memcpy(&buffer[block_record->first_free_byte], &input_buffer, record_size);
 
 	block_record->data = buffer;
 	block_record->object_type = 'R';
 
 	block_record->objects_amount += 1;
 
-	data_file_->write(reinterpret_cast<char*>(block_record), block_byte_location, database_header_->data_block_size);
+	data_file_->write(reinterpret_cast<char*>(block_record), block_record_byte_location, database_header_->data_block_size);
 
 	if (table_info->first_block_record_byte_location == -1)
 	{
-		table_info->first_block_record_byte_location = int(block_byte_location);
+		table_info->first_block_record_byte_location = int(block_record_byte_location);
 	}
 
-	table_info->last_block_record_byte_location = int(block_byte_location);
+	table_info->last_block_record_byte_location = int(block_record_byte_location);
 
 	const auto block_table = reinterpret_cast<data_block*>(data_file_->read(block_table_byte_location, database_header_->data_block_size)
-	);
+		);
 	memcpy(&block_table->data[table_byte_location_in_block], reinterpret_cast<char*>(table_info), sizeof table);
 
 	data_file_->write(reinterpret_cast<char*>(block_table), block_table_byte_location, database_header_->data_block_size);
@@ -333,14 +326,20 @@ void engine::select_all(table* table_info) const
 {
 	const auto record_size = get_record_size(table_info);
 	const auto columns = find_columns_of_table(table_info);
-	const auto record_block = reinterpret_cast<data_block*>(data_file_->read(table_info->first_block_record_byte_location, record_size + sizeof record)
+	const auto record_block = reinterpret_cast<data_block*>(data_file_->read(table_info->first_block_record_byte_location, database_header_->data_block_size)
 		);
 	unsigned position = 0;
+
+	if (table_info->first_block_record_byte_location == -1)
+	{
+		std::cout << "No records!" << std::endl;
+		return;
+	}
 
 	for (unsigned i = 0; i < record_block->objects_amount;i++)
 	{
 		const auto record_buffer = new char[record_size];
-		memcpy(&record_buffer[0], &record_block->data[i * (record_size + sizeof record)], record_size + sizeof record);
+		memcpy(&record_buffer[0], &record_block->data[i * (record_size)], record_size);
 		std::cout << "-----------------------------------------------------------";
 		std::cout << std::endl;
 
@@ -350,19 +349,19 @@ void engine::select_all(table* table_info) const
 			if (columns[j]->data_type == 'I')
 			{
 				int value;
-				memcpy(&value, &record_buffer[position], columns[j]->size);
+				memcpy(reinterpret_cast<char*>(&value), &record_buffer[position], columns[j]->size);
 				std::cout << value;
 
 			}
 			else if (columns[j]->data_type == 'D')
 			{
 				double value;
-				memcpy(&value, &record_buffer[position], columns[j]->size);
+				memcpy(reinterpret_cast<char*>(&value), &record_buffer[position], columns[j]->size);
 				std::cout << value;
 			}
 			else
 			{
-				const auto value = new char[columns[j]->size];
+				const auto value = new char[columns[j]->size + 20];
 				memcpy(value, &record_buffer[position], columns[j]->size);
 				std::cout << value;
 			}
@@ -373,6 +372,81 @@ void engine::select_all(table* table_info) const
 	}
 
 
-	
 
+
+}
+
+void engine::list_tables() const
+{
+	auto block_position = database_header_->first_data_block;
+
+	for (unsigned int i = 0; i < database_header_->data_blocks_quantity; i++)
+	{
+		const auto current_data_block = reinterpret_cast<data_block*>(data_file_->read(block_position,
+			database_header_->data_block_size));
+
+		if (current_data_block->object_type != 'T')
+		{
+			block_position += database_header_->data_block_size;
+			continue;
+		}
+
+		for (unsigned int j = 0; j < current_data_block->objects_amount;j++)
+		{
+			const auto buffer = new char[sizeof table];
+			const auto table_byte_location_in_block = j * sizeof table;
+			memcpy(&buffer[0], &current_data_block->data[table_byte_location_in_block], sizeof table);
+			const auto current_table = reinterpret_cast<table*>(buffer);
+
+			if (!current_table->disabled)
+			{
+				std::cout << current_table->name << std::endl;
+			}
+
+			//delete[] buffer;
+		}
+
+		//delete current_data_block;
+		block_position += database_header_->data_block_size;
+	}
+}
+
+void engine::delete_table(char name[30]) const
+{
+	const auto table_position = find_table_by_name(name);
+
+	const auto table_info = static_cast<table*>(std::get<0>(table_position));
+	const auto table_block_position = static_cast<int>(std::get<1>(table_position));
+	const auto table_position_in_block = static_cast<int>(std::get<2>(table_position));
+
+	table_info->disabled = true;
+
+	const auto block_table = reinterpret_cast<data_block*>(data_file_->read(table_block_position, database_header_->data_block_size)
+		);
+	memcpy(&block_table->data[table_position_in_block], reinterpret_cast<char*>(table_info), sizeof table);
+
+	data_file_->write(reinterpret_cast<char*>(block_table), table_block_position, database_header_->data_block_size);
+}
+
+void engine::delete_records(char table_name[30]) const
+{
+	const auto table_position = find_table_by_name(table_name);
+
+	const auto table_info = static_cast<table*>(std::get<0>(table_position));
+	const auto table_block_position = static_cast<int>(std::get<1>(table_position));
+	const auto table_position_in_block = static_cast<int>(std::get<2>(table_position));
+	const auto block_record_byte_location = table_info->first_block_record_byte_location;
+
+	const auto block_record = reinterpret_cast<data_block*>(data_file_->read(block_record_byte_location, database_header_->data_block_size)
+		);
+	table_info->first_block_record_byte_location = -1;
+	block_record->data = new char[database_header_->data_block_buffer_size];
+
+	data_file_->write(reinterpret_cast<char*>(block_record), block_record_byte_location, database_header_->data_block_size);
+
+	const auto block_table = reinterpret_cast<data_block*>(data_file_->read(table_block_position, database_header_->data_block_size)
+		);
+	memcpy(&block_table->data[table_position_in_block], reinterpret_cast<char*>(table_info), sizeof table);
+
+	data_file_->write(reinterpret_cast<char*>(block_table), table_block_position, database_header_->data_block_size);
 }

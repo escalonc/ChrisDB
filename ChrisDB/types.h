@@ -12,6 +12,7 @@ struct table
 	int first_record_byte_location_in_block = -1;
 	int last_block_record_byte_location = -1;
 	int last_record_byte_location_in_block = -1;
+	bool disabled = false;
 };
 
 struct column
@@ -28,12 +29,6 @@ struct column_dto
 	char name[30]{};
 	char data_type{};
 	unsigned int size{};
-};
-
-struct record
-{
-	char* data{};
-	int next{};
 };
 
 struct database_header
